@@ -16,14 +16,6 @@ void wireframe_callback(GLFWwindow* window, int key, int scancode, int action, i
 			wireframeToggle = true;
 		}
 	}
-	else if (key == GLFW_KEY_S && action == GLFW_RELEASE) {
-		if (shaderToggle) {
-			shaderToggle = false;
-		}
-		else {
-			shaderToggle = true;
-		}
-	}
 	else if (key == GLFW_KEY_ESCAPE) {
 		exit(1);
 	}
@@ -42,7 +34,7 @@ const char* vertexShaderSource = "#version 330 core\n"
 "}\0";
 
 //Fragment Shader
-const char* fragmentShaderSource = "#version 330 core\n"
+const char* orangeFragmentShaderSource = "#version 330 core\n"
 "out vec4 FragColor;\n"
 "void main()\n"
 "{\n"
@@ -50,11 +42,11 @@ const char* fragmentShaderSource = "#version 330 core\n"
 "}\n\0";
 
 //Second Fragment Shader
-const char* secondFragmentShaderSource = "#version 330 core\n"
+const char* yellowFragmentShaderSource = "#version 330 core\n"
 "out vec4 FragColor;\n"
 "void main()\n"
 "{\n"
-"   FragColor = vec4(1.0f, 0.0f, 0.0f, 1.0f);\n"
+"   FragColor = vec4(1.0f, 1.0f, 0.0f, 1.0f);\n"
 "}\n\0";
 
 int main(void) {
@@ -69,13 +61,14 @@ int main(void) {
 	{
 		 0.5f,  0.5f, 0.0f,  // top right
 		 0.5f, -0.5f, 0.0f,  // bottom right
-		-0.5f, -0.5f, 0.0f,  // bottom left
 		-0.5f,  0.5f, 0.0f   // top left 
 	};
 
-	unsigned int indices[] = {  // note that we start from 0!
-		0, 1, 3,   // first triangle
-		1, 2, 3    // second triangle
+	float vertices2[] =
+	{
+		 0.5f, -0.5f, 0.0f,  // bottom right
+		-0.5f, -0.5f, 0.0f,  // bottom left
+		-0.5f,  0.5f, 0.0f   // top left
 	};
 
 	// Create window
@@ -110,85 +103,72 @@ int main(void) {
 
 	// Create the fragment shader, set the source and compile it
 	GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
+	glShaderSource(fragmentShader, 1, &orangeFragmentShaderSource, NULL);
 	glCompileShader(fragmentShader);
 
 	// Now a second fragment shader, which sets a different color
 	GLuint secondFragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(secondFragmentShader, 1, &secondFragmentShaderSource, NULL);
-	glCompileShader(fragmentShader);
+	glShaderSource(secondFragmentShader, 1, &yellowFragmentShaderSource, NULL);
+	glCompileShader(secondFragmentShader);
 
 	// Now create the shader program
-	GLuint firstTriangleShaderProgram = glCreateProgram();
-	GLuint secondTriangleShaderProgram = glCreateProgram();
+	GLuint orangeTriangleShaderProgram = glCreateProgram();
+	GLuint yellowTriangleShaderProgram = glCreateProgram();
 
 	// Attach the previously created shaders
-	glAttachShader(firstTriangleShaderProgram, vertexShader);
-	glAttachShader(secondTriangleShaderProgram, vertexShader);
+	glAttachShader(orangeTriangleShaderProgram, vertexShader);
+	glAttachShader(orangeTriangleShaderProgram, fragmentShader);
 
-	glAttachShader(firstTriangleShaderProgram, fragmentShader);
-	glAttachShader(secondTriangleShaderProgram, secondFragmentShader);
+	glAttachShader(yellowTriangleShaderProgram, vertexShader);
+	glAttachShader(yellowTriangleShaderProgram, secondFragmentShader);
 
 	// Links the shaders to the shader program object
 	// to generate a working shader program.
-	glLinkProgram(firstTriangleShaderProgram);
-	glLinkProgram(secondTriangleShaderProgram);
+	glLinkProgram(orangeTriangleShaderProgram);
+	glLinkProgram(yellowTriangleShaderProgram);
 
 	// Then delete them, since the program has already been created,
 	// and we want to always free the resources that are not being used anymore.
 
 	// The vertex array and vertex buffer objects.
-	GLuint VAO, VBO, EBO;
+	GLuint firstVAO, firstVBO, secondVAO, secondVBO;
 
 	// Always generate the VAO before the VBO (and EBO apparently).
-	glGenVertexArrays(1, &VAO);
-	glGenBuffers(1, &VBO);
-	glGenBuffers(1, &EBO);
+	glGenVertexArrays(1, &firstVAO);
+	glGenBuffers(1, &firstVBO);
 
-	// Bind the created vertex array object.
-	glBindVertexArray(VAO);
-	
-	// Bind the buffer object
-	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	// Set the buffer data
+	glGenVertexArrays(1, &secondVAO);
+	glGenBuffers(1, &secondVBO);
+
+	glBindVertexArray(firstVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, firstVBO);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-	// Bind the buffer object
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-	// Set the buffer data
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-
-	// Call vertex attribute pointer
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-	// Enable it
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
 	glEnableVertexAttribArray(0);
 
-	// Bind to 0
-	glBindBuffer(VBO, 0);
-	
-	// Same for array
-	glBindVertexArray(0);
+	// Bind the created vertex array object.
+	glBindVertexArray(secondVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, secondVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices2), vertices2, GL_STATIC_DRAW);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+	glEnableVertexAttribArray(0);
 
 	glfwSetKeyCallback(window, wireframe_callback);
 
 	// While loop so the window does not close.
 	while (!glfwWindowShouldClose(window)) {
-		// Clear the color.
 		glClearColor(0.07f, 0.13f, 0.17f, 1.0f);
-
-		// Set the buffer to be the back buffer.
 		glClear(GL_COLOR_BUFFER_BIT);
 
-		if (shaderToggle) {
-			glUseProgram(secondTriangleShaderProgram);
-		}
-		else {
-			glUseProgram(firstTriangleShaderProgram);
-		}
-		
-		glBindVertexArray(VAO);
-		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-		glBindVertexArray(0);
+		glUseProgram(yellowTriangleShaderProgram);
+
+		glBindVertexArray(firstVAO);
+		glDrawArrays(GL_TRIANGLES, 0, 3);
+
+		glUseProgram(orangeTriangleShaderProgram);
+
+		glBindVertexArray(secondVAO);
+		glDrawArrays(GL_TRIANGLES, 0, 3);
 
 		glfwSwapBuffers(window);
 
@@ -201,11 +181,12 @@ int main(void) {
 	glDeleteShader(fragmentShader);
 	glDeleteShader(secondFragmentShader);
 
-	glDeleteVertexArrays(1, &VAO);
-	glDeleteBuffers(1, &VBO);
-	glDeleteBuffers(1, &EBO);
-	glDeleteProgram(firstTriangleShaderProgram);
-	glDeleteProgram(secondTriangleShaderProgram);
+	glDeleteVertexArrays(1, &firstVAO);
+	glDeleteBuffers(1, &firstVBO);
+	glDeleteVertexArrays(1, &secondVAO);
+	glDeleteBuffers(1, &secondVBO);
+	glDeleteProgram(orangeTriangleShaderProgram);
+	glDeleteProgram(yellowTriangleShaderProgram);
 
 	// Destroy the window when the program is about to exit.
 	glfwDestroyWindow(window);
