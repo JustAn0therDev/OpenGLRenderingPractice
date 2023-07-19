@@ -1,6 +1,14 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <iostream>
+#include "Shader.hpp"
+
+// Window settings
+constexpr int WIDTH = 1024;
+constexpr int HEIGHT = 768;
+
+// Main window
+Shader* shader;
 
 bool wireframeToggle = false;
 bool shaderToggle = false;
@@ -16,37 +24,29 @@ void wireframeCallback(GLFWwindow* window, int key, int scancode, int action, in
 			wireframeToggle = true;
 		}
 	}
+	else if (key == GLFW_KEY_LEFT) {
+		shader->setVec1f("offset", -0.5);
+	}
+	else if (key == GLFW_KEY_RIGHT) {
+		shader->setVec1f("offset", 0.5);
+	}
 	else if (key == GLFW_KEY_ESCAPE) {
 		exit(1);
 	}
 }
 
-// Window settings
-constexpr int WIDTH = 1024;
-constexpr int HEIGHT = 768;
+/*
+0. Create a shader managing class (a class to read shader code) - DONE
+1. Adjust the vertex shader so that the triangle is upside down. - DONE
+2. Specify a horizontal offset via a uniform and move the triangle to the right side of the screen in the vertex shader using this offset value. - DONE
+3. Output the vertex position to the fragment shader using the out keyword and set the fragment's color equal to this vertex position 
+(see how even the vertex position values are interpolated across the triangle). Once you managed to do this; try to answer the following question: why is the bottom-left side of our triangle black?. - DONE
 
-// Vertex Shader
-const char* vertexShaderSource = "#version 330 core\n"
-"layout (location = 0) in vec3 aPos;\n"
-"layout (location = 1) in vec3 aColor;\n"
-"out vec3 ourColor;"
-"void main()\n"
-"{\n"
-"   gl_Position = vec4(aPos, 1.0);\n"
-"   ourColor = aColor;\n"
-"}\0";
-
-//Fragment Shader
-const char* fragmentShaderSource = "#version 330 core\n"
-"out vec4 FragColor;\n"
-"in vec3 ourColor;\n"
-"void main()\n"
-"{\n"
-"   FragColor = vec4(ourColor, 1.0f);\n"
-"}\n\0";
-
+*/
 int main(void) {
 	glfwInit();
+
+	shader = nullptr;
 
 	// Set OpenGL version
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -55,9 +55,9 @@ int main(void) {
 
 	float vertices[] = {
 		// positions         // colors
-		 0.5f, -0.5f, 0.0f,  1.0f, 0.0f, 0.0f,   // bottom right
-		-0.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,   // bottom left
-		 0.0f,  0.5f, 0.0f,  0.0f, 0.0f, 1.0f    // top 
+		 -0.5f,  0.5f, 0.0f,  1.0f, 0.0f, 0.0f,   // bottom right
+		 0.5f, 0.5f, 0.0f,  0.0f, 1.0f, 0.0f,   // bottom left
+		 0.0f,  -0.5f, 0.0f,  0.0f, 0.0f, 1.0f    // top 
 	};
 
 	// Create window
@@ -85,32 +85,6 @@ int main(void) {
 	// so it needs to know the screen size beforehand.)
 	glViewport(0, 0, WIDTH, HEIGHT);
 
-	// Create the vertex shader, set the source and compile it
-	GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
-	glCompileShader(vertexShader);
-
-	// Create the fragment shader, set the source and compile it
-	GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
-	glCompileShader(fragmentShader);
-
-	// Now create the shader program
-	GLuint shaderProgram = glCreateProgram();
-
-	// Attach the previously created shaders
-	glAttachShader(shaderProgram, vertexShader);
-	glAttachShader(shaderProgram, fragmentShader);
-
-	// Links the shaders to the shader program object
-	// to generate a working shader program.
-	glLinkProgram(shaderProgram);
-
-	// Then delete them, since the program has already been created,
-	// and we want to always free the resources that are not being used anymore.
-	glDeleteShader(vertexShader);
-	glDeleteShader(fragmentShader);
-
 	// The vertex array and vertex buffer objects.
 	GLuint firstVAO, firstVBO;
 
@@ -129,23 +103,13 @@ int main(void) {
 
 	glfwSetKeyCallback(window, wireframeCallback);
 
-	// Calling this function only once, since its the only shader program in this project.
-	glUseProgram(shaderProgram);
+	shader = new Shader("Assets\\Shaders\\shader.vs", "Assets\\Shaders\\shader.fs");
+
+	shader->use();
 
 	// While loop so the window does not close.
 	while (!glfwWindowShouldClose(window)) {
 		// Changing the colors
-		float timeValue = glfwGetTime();
-		float greenValue = (sin(timeValue) / 2.0f) + 0.5f;
-		int vertexColorLocation = glGetUniformLocation(shaderProgram, "ourColor");
-		
-		// glUseProgram(shaderProgram) does not need to be called multiple times.
-		// In this case, we would want to call it multiple times if the shaders changed
-		// in different places. So, when modifying an uniform value, the best thing to do
-		// is make sure the correct shader program is being used.
-		// If not, the program could fail.
-		glUniform4f(vertexColorLocation, 0.0f, greenValue, 0.0f, 1.0f);
-
 		glClearColor(0.07f, 0.13f, 0.17f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
 
@@ -160,7 +124,6 @@ int main(void) {
 
 	glDeleteVertexArrays(1, &firstVAO);
 	glDeleteBuffers(1, &firstVBO);
-	glDeleteProgram(shaderProgram);
 
 	// Destroy the window when the program is about to exit.
 	glfwDestroyWindow(window);
