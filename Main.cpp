@@ -3,12 +3,17 @@
 #include <iostream>
 #include "Shader.hpp"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 // Window settings
 constexpr int WIDTH = 1024;
 constexpr int HEIGHT = 768;
 
 // Main window
 Shader* shader;
+constexpr float offset = 0.1f;
+float currentOffset = 0;
 
 bool wireframeToggle = false;
 bool shaderToggle = false;
@@ -25,24 +30,18 @@ void wireframeCallback(GLFWwindow* window, int key, int scancode, int action, in
 		}
 	}
 	else if (key == GLFW_KEY_LEFT) {
-		shader->setVec1f("offset", -0.5);
+		currentOffset -= offset;
+		shader->setVec1f("offset", currentOffset);
 	}
 	else if (key == GLFW_KEY_RIGHT) {
-		shader->setVec1f("offset", 0.5);
+		currentOffset += offset;
+		shader->setVec1f("offset", currentOffset);
 	}
 	else if (key == GLFW_KEY_ESCAPE) {
 		exit(1);
 	}
 }
 
-/*
-0. Create a shader managing class (a class to read shader code) - DONE
-1. Adjust the vertex shader so that the triangle is upside down. - DONE
-2. Specify a horizontal offset via a uniform and move the triangle to the right side of the screen in the vertex shader using this offset value. - DONE
-3. Output the vertex position to the fragment shader using the out keyword and set the fragment's color equal to this vertex position 
-(see how even the vertex position values are interpolated across the triangle). Once you managed to do this; try to answer the following question: why is the bottom-left side of our triangle black?. - DONE
-
-*/
 int main(void) {
 	glfwInit();
 
@@ -54,10 +53,16 @@ int main(void) {
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 	float vertices[] = {
-		// positions         // colors
-		 -0.5f,  0.5f, 0.0f,  1.0f, 0.0f, 0.0f,   // bottom right
-		 0.5f, 0.5f, 0.0f,  0.0f, 1.0f, 0.0f,   // bottom left
-		 0.0f,  -0.5f, 0.0f,  0.0f, 0.0f, 1.0f    // top 
+		// positions          // colors           // texture coords
+		 0.5f,  0.5f, 0.0f,   1.0f, 0.0f, 0.0f,   1.0f, 1.0f,   // top right
+		 0.5f, -0.5f, 0.0f,   0.0f, 1.0f, 0.0f,   1.0f, 0.0f,   // bottom right
+		-0.5f, -0.5f, 0.0f,   0.0f, 0.0f, 1.0f,   0.0f, 0.0f,   // bottom left
+		-0.5f,  0.5f, 0.0f,   1.0f, 1.0f, 0.0f,   0.0f, 1.0f    // top left 
+	};
+
+	unsigned int indices[] = {  // note that we start from 0!
+		0, 1, 3,   // first triangle
+		1, 2, 3    // second triangle
 	};
 
 	// Create window
@@ -86,20 +91,30 @@ int main(void) {
 	glViewport(0, 0, WIDTH, HEIGHT);
 
 	// The vertex array and vertex buffer objects.
-	GLuint firstVAO, firstVBO;
+	GLuint VAO, VBO, EBO;
 
 	// Always generate the VAO before the VBO (and EBO apparently).
-	glGenVertexArrays(1, &firstVAO);
-	glGenBuffers(1, &firstVBO);
+	glGenVertexArrays(1, &VAO);
+	glGenBuffers(1, &VBO);
+	glGenBuffers(1, &EBO);
 
-	glBindVertexArray(firstVAO);
-	glBindBuffer(GL_ARRAY_BUFFER, firstVBO);
+	glBindVertexArray(VAO);
+
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 	
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+	// Vertices
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
 	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3*sizeof(float)));
+	// Colors
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3*sizeof(float)));
 	glEnableVertexAttribArray(1);
+	// Texture coordinates
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+	glEnableVertexAttribArray(2);
 
 	glfwSetKeyCallback(window, wireframeCallback);
 
@@ -107,14 +122,46 @@ int main(void) {
 
 	shader->use();
 
+	// nrChannels -> Number of color channels
+	int width, height, nrChannels;
+	unsigned char* data = stbi_load("Assets\\Images\\container.jpg", &width, &height, &nrChannels, 0);
+
+	GLuint texture;
+	// Generate a texture
+	glGenTextures(1, &texture);
+
+	// Bind the texture to the current context, meaning that every action
+	// from now on will be done for this texture.
+	// Another thing to note is that its only bound for GL_TEXTURE_2D: no
+	// other type of texture (GL_TEXTURE_1D or GL_TEXTURE_3D) will be modified 
+	// in the following actions.
+	glBindTexture(GL_TEXTURE_2D, texture);
+
+	// Specifying how OpenGL should deal with the image if it
+	// happens to be smaller than the rendered object.
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	// Generate the texture in OpenGL
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+
+	// Generate its mipmap for long distance rendering
+	glGenerateMipmap(GL_TEXTURE_2D);
+
+	// Freeing the loaded image
+	stbi_image_free(data);
+
 	// While loop so the window does not close.
 	while (!glfwWindowShouldClose(window)) {
 		// Changing the colors
 		glClearColor(0.07f, 0.13f, 0.17f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
 
-		glBindVertexArray(firstVAO);
-		glDrawArrays(GL_TRIANGLES, 0, 3);
+		glBindTexture(GL_TEXTURE_2D, texture);
+		glBindVertexArray(VAO);
+		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
 		glfwSwapBuffers(window);
 
@@ -122,8 +169,8 @@ int main(void) {
 		glfwPollEvents();
 	}
 
-	glDeleteVertexArrays(1, &firstVAO);
-	glDeleteBuffers(1, &firstVBO);
+	glDeleteVertexArrays(1, &VAO);
+	glDeleteBuffers(2, &EBO);
 
 	// Destroy the window when the program is about to exit.
 	glfwDestroyWindow(window);
