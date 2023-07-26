@@ -15,6 +15,9 @@ Shader* shader;
 constexpr float offset = 0.1f;
 float currentOffset = 0;
 
+constexpr float transparency = 0.1f;
+float currentTransparency = 0.1f;
+
 bool wireframeToggle = false;
 bool shaderToggle = false;
 
@@ -36,6 +39,14 @@ void wireframeCallback(GLFWwindow* window, int key, int scancode, int action, in
 	else if (key == GLFW_KEY_RIGHT) {
 		currentOffset += offset;
 		shader->setVec1f("offset", currentOffset);
+	}
+	else if (key == GLFW_KEY_UP) {
+		currentTransparency += transparency;
+		shader->setFloat("transparency", currentTransparency);
+	}
+	else if (key == GLFW_KEY_DOWN) {
+		currentTransparency -= transparency;
+		shader->setFloat("transparency", currentTransparency);
 	}
 	else if (key == GLFW_KEY_ESCAPE) {
 		exit(1);
@@ -190,6 +201,7 @@ int main(void) {
 
 	shader->setInt("texture1", 0);
 	shader->setInt("texture2", 1);
+	shader->setFloat("transparency", transparency);
 
 	// While loop so the window does not close.
 	while (!glfwWindowShouldClose(window)) {
