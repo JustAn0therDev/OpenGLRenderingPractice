@@ -118,10 +118,6 @@ int main(void) {
 
 	glfwSetKeyCallback(window, wireframeCallback);
 
-	shader = new Shader("Assets\\Shaders\\shader.vs", "Assets\\Shaders\\shader.fs");
-
-	shader->use();
-
 	// nrChannels -> Number of color channels
 	int width, height, nrChannels;
 	unsigned char* data = stbi_load("Assets\\Images\\container.jpg", &width, &height, &nrChannels, 0);
@@ -135,6 +131,7 @@ int main(void) {
 	// Another thing to note is that its only bound for GL_TEXTURE_2D: no
 	// other type of texture (GL_TEXTURE_1D or GL_TEXTURE_3D) will be modified 
 	// in the following actions.
+	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, texture);
 
 	// Specifying how OpenGL should deal with the image if it
@@ -153,13 +150,58 @@ int main(void) {
 	// Freeing the loaded image
 	stbi_image_free(data);
 
+	stbi_set_flip_vertically_on_load(true);
+
+	// Loading the second image.
+	data = stbi_load("Assets\\Images\\awesomeface.png", &width, &height, &nrChannels, 0);
+
+	// Now generate the second texture
+	GLuint texture2;
+	glGenTextures(1, &texture2);
+
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, texture2);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	// In this case, the image is the .png format instead of .jpg, meaning that it has a new
+	// channel (Alpha, for transparency). So the value for the number of channels should be
+	// RGBA instead of RGB.
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+
+	glGenerateMipmap(GL_TEXTURE_2D);
+
+	// Freeing the loaded image
+	stbi_image_free(data);
+
+	shader = new Shader("Assets\\Shaders\\shader.vs", "Assets\\Shaders\\shader.fs");
+
+	shader->use();
+
+	// This call is kinda optional when dealing with a single texture.
+	// We can assign a location to get the texture and render it in
+	// the fragment shader. The currently loaded texture has a default position of 0,
+	// but not every graphics card manufacturer has this default "texture unit" set,
+	// so it's better to set it manually.
+	// OpenGL has at least 16 positions to set textures at a time (from GL_TEXTURE0 to GL_TEXTURE16).
+
+	shader->setInt("texture1", 0);
+	shader->setInt("texture2", 1);
+
 	// While loop so the window does not close.
 	while (!glfwWindowShouldClose(window)) {
 		// Changing the colors
 		glClearColor(0.07f, 0.13f, 0.17f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
-
+		
+		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, texture);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, texture2);
+
 		glBindVertexArray(VAO);
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
