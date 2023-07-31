@@ -16,15 +16,35 @@ constexpr int HEIGHT = 768;
 // Main window
 Shader* shader;
 
+// Transparency settings
 constexpr float transparency = 0.1f;
 float currentTransparency = 0.0f;
+
+// Delta time
+float lastFrame = 0.0f, deltaTime = 0.0f;
+
+// Camera settings
+bool firstMouse = true;
+float pitch = 0.0f;
+float yaw = 0.0f;
+float lastX = 0.0f;
+float lastY = 0.0f;
+float fov = 45.0f;
 
 bool wireframeToggle = false;
 bool shaderToggle = false;
 
+glm::vec3 viewVector = glm::vec3(0.0f, 0.0f, -3.0f);
+float modelRotation = -55.0f;
+const glm::vec3 rotationAxis = glm::vec3(0.0f, 1.0f, 0.0f);
+
 glm::mat4 model = glm::mat4(1.0f);
 glm::mat4 view = glm::mat4(1.0f);
 glm::mat4 projection;
+
+glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
+glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
+glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
 void printMatrix(const glm::mat4& matrix) {
 	for (int i = 0; i < 4; i++)
@@ -61,6 +81,68 @@ void wireframeCallback(GLFWwindow* window, int key, int scancode, int action, in
 			exit(1);
 		}
 	}
+
+	const float cameraSpeed = 7.5f * deltaTime;
+
+	// Camera movement controls
+	if (key == GLFW_KEY_W) {
+		cameraPos += cameraSpeed * cameraFront;
+	}
+	
+	if (key == GLFW_KEY_S) {
+		cameraPos -= cameraSpeed * cameraFront;
+	}
+	
+	if (key == GLFW_KEY_D) {
+		cameraPos += cameraSpeed * glm::normalize(glm::cross(cameraFront, cameraUp));
+	}
+	
+	if (key == GLFW_KEY_A) {
+		cameraPos -= cameraSpeed * glm::normalize(glm::cross(cameraFront, cameraUp));
+	}
+}
+
+void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
+	// Mouse controls (camera yaw and pitch)
+	
+	if (firstMouse) {
+		lastX = (float)xpos;
+		lastY = (float)ypos;
+		firstMouse = false;
+	}
+
+	float xoffset = (float)xpos - lastX;
+	float yoffset = lastY - (float)ypos;
+	lastX = (float)xpos;
+	lastY = (float)ypos;
+
+	float sensitivity = 0.1f;
+	xoffset *= sensitivity;
+	yoffset *= sensitivity;
+
+	yaw += xoffset;
+	pitch += yoffset;
+
+	if (pitch > 89.0f)
+		pitch = 89.0f;
+	
+	if (pitch < -89.0f)
+		pitch = -89.0f;
+
+	glm::vec3 direction;
+	direction.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+	direction.y = sin(glm::radians(pitch));
+	direction.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+	cameraFront = glm::normalize(direction);
+}
+
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+{
+	fov -= (float)yoffset;
+	if (fov < 1.0f)
+		fov = 1.0f;
+	if (fov > 45.0f)
+		fov = 45.0f;
 }
 
 int main(void) {
@@ -73,14 +155,6 @@ int main(void) {
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     
-	//float vertices[] = {
-	//	// positions          // colors           // texture coords
- //       0.5f,  0.5f, 0.0f,   1.0f, 0.0f, 0.0f,   1.0f, 1.0f,   // top right
- //       0.5f, -0.5f, 0.0f,   0.0f, 1.0f, 0.0f,   1.0f, 0.0f,   // bottom right
-	//	-0.5f, -0.5f, 0.0f,   0.0f, 0.0f, 1.0f,   0.0f, 0.0f,   // bottom left
-	//	-0.5f,  0.5f, 0.0f,   1.0f, 1.0f, 0.0f,   0.0f, 1.0f,    // top left
-	//};
-
 	float vertices[] = {
 	-0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
 	 0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
@@ -163,6 +237,12 @@ int main(void) {
     
 	// Make glad load OpenGL.
 	gladLoadGL();
+
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+	
+	glfwSetKeyCallback(window, wireframeCallback);
+	glfwSetCursorPosCallback(window, mouse_callback);
+	glfwSetScrollCallback(window, scroll_callback);
     
 	// Set the viewport (limits to where to draw the content. The positions in OpenGL are all normalized,
 	// so it needs to know the screen size beforehand.)
@@ -190,9 +270,7 @@ int main(void) {
 	// Texture coordinates
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
 	glEnableVertexAttribArray(1);
-    
-	glfwSetKeyCallback(window, wireframeCallback);
-    
+   
 	// nrChannels -> Number of color channels
 	int width, height, nrChannels;
 	unsigned char* data = stbi_load("Assets\\Images\\container.jpg", &width, &height, &nrChannels, 0);
@@ -278,8 +356,6 @@ int main(void) {
 	shader->setFloat("transparency", transparency);
 
 	model = glm::rotate(model, glm::radians(-55.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-	view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
-	projection = glm::perspective(glm::radians(45.0f), (float)WIDTH / (float)HEIGHT, 0.1f, 1000.0f);
 
 	shader->setMatrix4fv("model", model);
 	shader->setMatrix4fv("view", view);
@@ -290,6 +366,12 @@ int main(void) {
 	// MAIN LOOP
 	// While loop so the window does not close.
 	while (!glfwWindowShouldClose(window)) {
+		
+		// Update deltaTime
+		float currentFrame = (float)glfwGetTime();
+		deltaTime = currentFrame - lastFrame;
+		lastFrame = currentFrame;
+
         // Changing the colors
         glClearColor(0.07f, 0.13f, 0.17f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -300,17 +382,30 @@ int main(void) {
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, texture2);
        
-        //glBindVertexArray(VAO);
+        glBindVertexArray(VAO);
 
 		for (unsigned i = 0; i < 10; i++) {
 			glm::mat4 model = glm::mat4(1.0f);
 			model = glm::translate(model, cubePositions[i]);
-			float angle = i * (float)glfwGetTime() * 3;
-			model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
+
+			if (i % 3 == 0) {
+				float angle = i * (float)glfwGetTime() * 3;
+				model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
+			}
+
 			shader->setMatrix4fv("model", model);
+
 			glDrawArrays(GL_TRIANGLES, 0, 36);
 		}
+
+		// Since the camera is moving, we have to always update the view matrix
+		// in the fragment shader.
+		view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+		shader->setMatrix4fv("view", view);
+		projection = glm::perspective(glm::radians(fov), (float)WIDTH / (float)HEIGHT, 0.1f, 1000.0f);
+		shader->setMatrix4fv("projection", projection);
         
+		glDrawArrays(GL_TRIANGLES, 0, 36);
         // This call swaps the back and front buffers, so it needs to be here.
         glfwSwapBuffers(window);
         
