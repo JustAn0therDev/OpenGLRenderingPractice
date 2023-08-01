@@ -82,23 +82,27 @@ void wireframeCallback(GLFWwindow* window, int key, int scancode, int action, in
 		}
 	}
 
-	const float cameraSpeed = 7.5f * deltaTime;
+	const float cameraSpeed = 15.0f * deltaTime;
 
 	// Camera movement controls
 	if (key == GLFW_KEY_W) {
-		cameraPos += cameraSpeed * cameraFront;
+		// cameraPos += cameraSpeed * cameraFront;
+		cameraPos += cameraSpeed * glm::vec3(cameraFront.x, 0.0f, cameraFront.z);
 	}
 	
 	if (key == GLFW_KEY_S) {
-		cameraPos -= cameraSpeed * cameraFront;
+		// cameraPos -= cameraSpeed * cameraFront;
+		cameraPos -= cameraSpeed * glm::vec3(cameraFront.x, 0.0f, cameraFront.z);
 	}
 	
 	if (key == GLFW_KEY_D) {
-		cameraPos += cameraSpeed * glm::normalize(glm::cross(cameraFront, cameraUp));
+		// cameraPos += cameraSpeed * glm::normalize(glm::cross(cameraFront, cameraUp));
+		cameraPos += cameraSpeed * glm::normalize(glm::cross(glm::vec3(cameraFront.x, 0.0f, cameraFront.z), cameraUp));
 	}
 	
 	if (key == GLFW_KEY_A) {
-		cameraPos -= cameraSpeed * glm::normalize(glm::cross(cameraFront, cameraUp));
+		// cameraPos -= cameraSpeed * glm::normalize(glm::cross(cameraFront, cameraUp));
+		cameraPos -= cameraSpeed * glm::normalize(glm::cross(glm::vec3(cameraFront.x, 0.0f, cameraFront.z), cameraUp));
 	}
 }
 
