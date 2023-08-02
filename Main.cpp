@@ -216,11 +216,6 @@ int main(void) {
 		glm::vec3(-1.3f,  1.0f, -1.5f)
 	};
     
-	unsigned int indices[] = {  // note that we start from 0!
-		0, 1, 3,   // first triangle
-		1, 2, 3    // second triangle
-	};
-    
 	// Create window
 	GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "OpenGLRenderingPractice", NULL, NULL);
     
@@ -253,21 +248,17 @@ int main(void) {
 	glViewport(0, 0, WIDTH, HEIGHT);
     
 	// The vertex array and vertex buffer objects.
-	GLuint VAO, VBO, EBO;
+	GLuint VAO, VBO;
     
 	// Always generate the VAO before the VBO (and EBO apparently).
 	glGenVertexArrays(1, &VAO);
 	glGenBuffers(1, &VBO);
-	glGenBuffers(1, &EBO);
     
 	glBindVertexArray(VAO);
     
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
     
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-	
 	// Vertices
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
 	glEnableVertexAttribArray(0);
@@ -409,8 +400,7 @@ int main(void) {
 		projection = glm::perspective(glm::radians(fov), (float)WIDTH / (float)HEIGHT, 0.1f, 1000.0f);
 		shader->setMatrix4fv("projection", projection);
         
-		glDrawArrays(GL_TRIANGLES, 0, 36);
-        // This call swaps the back and front buffers, so it needs to be here.
+		// This call swaps the back and front buffers, so it needs to be here.
         glfwSwapBuffers(window);
         
         // Make sure to poll events so the window is not frozen.
@@ -418,7 +408,6 @@ int main(void) {
 	}
     
 	glDeleteVertexArrays(1, &VAO);
-	glDeleteBuffers(2, &EBO);
     
 	// Destroy the window when the program is about to exit.
 	glfwDestroyWindow(window);
